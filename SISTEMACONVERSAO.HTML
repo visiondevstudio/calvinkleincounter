@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Conversão | Calvin Garten</title>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --secondary-bg: #f5f5f7;
+            --text: #1d1d1f;
+            --accent: #000000;
+            --border: #d2d2d7;
+            --danger: #ff3b30;
+            --shadow: 0 4px 24px rgba(0,0,0,0.06);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--secondary-bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .card {
+            background: var(--bg);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .logo-img {
+            max-width: 180px;
+            height: auto;
+        }
+
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 25px;
+            letter-spacing: -0.5px;
+        }
+
+        .field {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #86868b;
+            text-transform: uppercase;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+            background: var(--bg);
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        input:disabled { background-color: #fbfbfd; color: #a1a1a6; }
+
+        .radio-group { display: flex; gap: 15px; margin-top: 5px; }
+        .radio-option { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+
+        .conditional {
+            display: none;
+            padding-top: 15px;
+            border-top: 1px solid #f5f5f7;
+            margin-top: 15px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: opacity 0.2s;
+        }
+
+        .btn-secondary {
+            width: 100%;
+            padding: 10px;
+            background: transparent;
+            color: #1d1d1f;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .btn-danger {
+            width: 100%;
+            background: transparent;
+            color: var(--danger);
+            border: none;
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 25px;
+            letter-spacing: 0.5px;
+        }
+
+        /* MODAL VISUALIZADOR */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.98);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal-content {
+            max-width: 800px;
+            margin: 20px auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-box {
+            background: #f5f5f7;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-box span { display: block; font-size: 12px; color: #86868b; margin-bottom: 5px; }
+        .stat-box strong { font-size: 20px; }
+
+        .table-container { overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            min-width: 500px;
+        }
+
+        th { text-align: left; padding: 12px; border-bottom: 2px solid #000; font-size: 11px; text-transform: uppercase; color: #86868b; }
+        td { padding: 12px; border-bottom: 1px solid #f5f5f7; }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 10px;
+        }
+        .badge-sim { background: #e3f9e5; color: #1f7a24; }
+        .badge-nao { background: #fff1f0; color: #cf1322; }
+
+        .close-btn {
+            background: #000; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="logo-container">
+        <img src="ck2.png" alt="Logo" class="logo-img">
+    </div>
+
+    <h1>Fluxo de Vendas</h1>
+    
+    <div class="field">
+        <label>Data</label>
+        <input type="text" id="data-atual" disabled>
+    </div>
+
+    <div class="field">
+        <label>Vendedor</label>
+        <select id="vendedor">
+            <option value="Adriano">Adriano</option>
+            <option value="Isa">Isa</option>
+            <option value="Renato">Renato</option>
+            <option value="Kauan">Kauan</option>
+        </select>
+    </div>
+
+    <div class="field">
+        <label>Houve venda?</label>
+        <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="venda" value="sim" onclick="toggleFields('sim')"> Sim</label>
+            <label class="radio-option"><input type="radio" name="venda" value="nao" onclick="toggleFields('nao')"> Não</label>
+        </div>
+    </div>
+
+    <div id="se-sim" class="conditional">
+        <div class="field">
+            <label>Valor da Venda (R$)</label>
+            <input type="number" id="valor" placeholder="0.00" step="0.01">
+        </div>
+    </div>
+
+    <div id="se-nao" class="conditional">
+        <div class="field">
+            <label>Motivo da Perda</label>
+            <select id="motivo">
+                <option value="">Selecione...</option>
+                <option value="Grade quebrada">Tamanho/Grade</option>
+                <option value="Falta de produto">Peça não encontrada</option>
+                <option value="Cor/Modelo">Não gostou do modelo</option>
+                <option value="Preço">Preço</option>
+                <option value="Apenas visitando">Só olhando</option>
+            </select>
+        </div>
+    </div>
+
+    <button class="btn-primary" onclick="salvar()">REGISTRAR ATENDIMENTO</button>
+    <button class="btn-secondary" onclick="abrirVisualizador()">📊 VER RESULTADOS</button>
+    <button class="btn-secondary" onclick="exportarExcel()">📥 BAIXAR EXCEL</button>
+    
+    <button class="btn-danger" onclick="limparTudo()">⚠️ Limpar Histórico do Mês</button>
+</div>
+
+<div id="modalVisualizador" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Relatório de Desempenho</h2>
+            <button class="close-btn" onclick="fecharVisualizador()">VOLTAR</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-box">
+                <span>Vendas Totais</span>
+                <strong id="stat-valor">R$ 0,00</strong>
+            </div>
+            <div class="stat-box">
+                <span>Conversão</span>
+                <strong id="stat-conversao">0%</strong>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="tabela-resultados">
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Vendedor</th>
+                        <th>Vendeu?</th>
+                        <th>Valor</th>
+                        <th>Motivo</th>
+                    </tr>
+                </thead>
+                <tbody id="corpo-tabela"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.onload = () => {
+        document.getElementById('data-atual').value = new Date().toLocaleDateString('pt-BR');
+    };
+
+    function toggleFields(status) {
+        document.getElementById('se-sim').style.display = (status === 'sim') ? 'block' : 'none';
+        document.getElementById('se-nao').style.display = (status === 'nao') ? 'block' : 'none';
+    }
+
+    function salvar() {
+        const vendedor = document.getElementById('vendedor').value;
+        const vendaRealizada = document.querySelector('input[name="venda"]:checked');
+        
+        if (!vendaRealizada) return alert("Selecione se houve venda.");
+
+        const converteu = vendaRealizada.value === 'sim';
+        const valor = parseFloat(document.getElementById('valor').value) || 0;
+        const motivo = document.getElementById('motivo').value;
+
+        // Validação básica
+        if(!converteu && motivo === "") return alert("Selecione o motivo da perda.");
+
+        const dados = {
+            Data: document.getElementById('data-atual').value,
+            Hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+            Vendedor: vendedor,
+            Vendeu: converteu ? "SIM" : "NÃO",
+            Valor: valor,
+            Motivo: !converteu ? motivo : "Venda"
+        };
+
+        let historico = JSON.parse(localStorage.getItem('dados_vendas')) || [];
+        historico.push(dados);
+        localStorage.setItem('dados_vendas', JSON.stringify(historico));
+
+        alert("Atendimento registrado com sucesso!");
+        location.reload();
+    }
+
+    function abrirVisualizador() {
+        const historico = JSON.parse(localStorage.getItem('dados_vendas')) || [];
+        const corpo = document.getElementById('corpo-tabela');
+        corpo.innerHTML = "";
+
+        if(historico.length === 0) {
+            alert("Não há dados registrados ainda.");
+            return;
+        }
+
+        let totalVendas = 0;
+        let vendasSim = 0;
+
+        // Mostrar do mais novo para o mais antigo
+        [...historico].reverse().forEach(row => {
+            if(row.Vendeu === "SIM") {
+                totalVendas += row.Valor;
+                vendasSim++;
+            }
+
+            corpo.innerHTML += `
+                <tr>
+                    <td>${row.Data} <br><small>${row.Hora}</small></td>
+                    <td>${row.Vendedor}</td>
+                    <td><span class="badge badge-${row.Vendeu.toLowerCase()}">${row.Vendeu}</span></td>
+                    <td>R$ ${row.Valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td>${row.Motivo}</td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('stat-valor').innerText = `R$ ${totalVendas.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        const taxa = (vendasSim / historico.length * 100).toFixed(1);
+        document.getElementById('stat-conversao').innerText = `${taxa}%`;
+
+        document.getElementById('modalVisualizador').style.display = 'block';
+    }
+
+    function fecharVisualizador() {
+        document.getElementById('modalVisualizador').style.display = 'none';
+    }
+
+    function limparTudo() {
+        const confirmar = confirm("Isso apagará permanentemente todos os registros salvos neste dispositivo. Deseja continuar?");
+        if (confirmar) {
+            const segundaConfirmacao = confirm("TEM CERTEZA? Os dados não poderão ser recuperados a menos que você tenha baixado o Excel.");
+            if (segundaConfirmacao) {
+                localStorage.removeItem('dados_vendas');
+                alert("O histórico foi zerado para o novo mês.");
+                location.reload();
+            }
+        }
+    }
+
+    function exportarExcel() {
+        const historico = JSON.parse(localStorage.getItem('dados_vendas')) || [];
+        if (historico.length === 0) return alert("Sem dados para exportar.");
+
+        let csv = "data:text/csv;charset=utf-8,\uFEFFData;Hora;Vendedor;Vendeu;Valor;Motivo\n";
+        historico.forEach(r => csv += `${r.Data};${r.Hora};${r.Vendedor};${r.Vendeu};${r.Valor.toString().replace('.',',')};${r.Motivo}\n`);
+
+        const link = document.createElement("a");
+        link.href = encodeURI(csv);
+        link.download = `relatorio_vendas_${new Date().getMonth()+1}.csv`;
+        link.click();
+    }
+</script>
+
+</body>
+</html>
