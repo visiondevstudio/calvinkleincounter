@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Conversão | Calvin Garten</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --secondary-bg: #f5f5f7;
+            --text: #1d1d1f;
+            --accent: #000000;
+            --border: #d2d2d7;
+            --danger: #ff3b30;
+            --shadow: 0 4px 24px rgba(0,0,0,0.06);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--secondary-bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .card {
+            background: var(--bg);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 420px;
+            box-sizing: border-box;
+        }
+
+        .logo-container { display: flex; justify-content: center; margin-bottom: 20px; }
+        .logo-img { max-width: 180px; height: auto; }
+        h1 { font-size: 20px; font-weight: 600; text-align: center; margin-bottom: 25px; letter-spacing: -0.5px; }
+
+        .field { margin-bottom: 18px; }
+        label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 6px; color: #86868b; text-transform: uppercase; }
+
+        select, input, textarea {
+            width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px;
+            font-size: 15px; background: var(--bg); box-sizing: border-box; outline: none; transition: border-color 0.2s;
+            font-family: inherit;
+        }
+
+        select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+        input:disabled, select:disabled { background-color: #fbfbfd; color: #a1a1a6; cursor: not-allowed; }
+
+        .radio-group { display: flex; gap: 15px; margin-top: 5px; }
+        .radio-option { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+
+        .conditional { display: none; padding-top: 15px; border-top: 1px solid #f5f5f7; margin-top: 15px; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Estilo específico para o campo de observação */
+        #campo-outros { margin-top: 12px; display: none; animation: fadeIn 0.3s ease; }
+
+        .btn-primary { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 15px; }
+        .btn-secondary { width: 100%; padding: 10px; background: transparent; color: #1d1d1f; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; cursor: pointer; margin-top: 10px; }
+        .btn-danger { width: 100%; background: transparent; color: var(--danger); border: none; font-size: 11px; text-transform: uppercase; font-weight: 600; cursor: pointer; margin-top: 25px; letter-spacing: 0.5px; }
+
+        .main-footer { text-align: center; padding: 20px 0; width: 100%; max-width: 420px; }
+        .main-footer p { font-size: 11px; color: #86868b; margin: 4px 0; }
+
+        /* MODAL */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.98); z-index: 1000; overflow-y: auto; padding: 20px; box-sizing: border-box; }
+        .modal-content { max-width: 1000px; margin: 20px auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+        .stat-box { background: #f5f5f7; padding: 15px; border-radius: 12px; text-align: center; }
+        .stat-box span { display: block; font-size: 12px; color: #86868b; margin-bottom: 5px; }
+        .stat-box strong { font-size: 20px; }
+
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 800px; }
+        th { text-align: left; padding: 12px; border-bottom: 2px solid #000; font-size: 11px; text-transform: uppercase; color: #86868b; }
+        td { padding: 12px; border-bottom: 1px solid #f5f5f7; }
+
+        .badge { padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 10px; }
+        .badge-sim { background: #e3f9e5; color: #1f7a24; }
+        .badge-nao { background: #fff1f0; color: #cf1322; }
+
+        .btn-del-unit { background: none; border: 1px solid var(--danger); color: var(--danger); padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+        .btn-del-unit:hover { background: var(--danger); color: white; }
+        
+        .close-btn { background: #000; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="logo-container">
+        <img src="ck2.png" alt="Logo" class="logo-img">
+    </div>
+
+    <h1>Fluxo de Vendas</h1>
+    
+    <div class="field">
+        <label>Data</label>
+        <input type="text" id="data-atual" disabled>
+    </div>
+
+    <div class="field">
+        <label>Unidade</label>
+        <select id="unidade" onchange="atualizarVendedores()">
+            <option value="">Selecione a loja...</option>
+            <option value="Beira Mar">Beira Mar</option>
+            <option value="Joinville">Joinville</option>
+        </select>
+    </div>
+
+    <div class="field">
+        <label>Vendedor</label>
+        <select id="vendedor" disabled>
+            <option value="">Selecione a unidade primeiro</option>
+        </select>
+    </div>
+
+    <div class="field">
+        <label>Houve venda?</label>
+        <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="venda" value="sim" onclick="toggleFields('sim')"> Sim</label>
+            <label class="radio-option"><input type="radio" name="venda" value="nao" onclick="toggleFields('nao')"> Não</label>
+        </div>
+    </div>
+
+    <div id="se-sim" class="conditional">
+        <div class="field">
+            <label>Valor da Venda (R$)</label>
+            <input type="number" id="valor" placeholder="0.00" step="0.01">
+        </div>
+    </div>
+
+    <div id="se-nao" class="conditional">
+        <div class="field">
+            <label>Motivo da Perda</label>
+            <select id="motivo" onchange="verificarOutros()">
+                <option value="">Selecione...</option>
+                <option value="Grade quebrada">Tamanho/Grade</option>
+                <option value="Falta de produto">Peça não encontrada</option>
+                <option value="Cor/Modelo">Não gostou do modelo</option>
+                <option value="Preço">Preço</option>
+                <option value="Apenas visitando">Só olhando</option>
+                <option value="Outros">Outros (especificar)</option>
+            </select>
+        </div>
+        <div id="campo-outros">
+            <label>Observação</label>
+            <textarea id="obs-outros" rows="2" placeholder="Descreva o motivo..."></textarea>
+        </div>
+    </div>
+
+    <button class="btn-primary" onclick="salvar()">REGISTRAR ATENDIMENTO</button>
+    <button class="btn-secondary" onclick="abrirVisualizador()">📊 VER RESULTADOS / APAGAR</button>
+    <button class="btn-secondary" onclick="exportarExcel()">📥 BAIXAR EXCEL</button>
+    
+    <button class="btn-danger" onclick="limparTudo()">⚠️ Limpar Histórico do Banco</button>
+</div>
+
+<footer class="main-footer">
+    <p>&copy; 2026 Adriano Marques. Todos os direitos reservados.</p>
+    <p>Sistema de Controle de Fluxo Interno v2.0 (Supabase DB)</p>
+</footer>
+
+<div id="modalVisualizador" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Gestão de Registros (Banco de Dados)</h2>
+            <button class="close-btn" onclick="fecharVisualizador()">VOLTAR</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-box"><span>Faturamento Total</span><strong id="stat-valor">R$ 0,00</strong></div>
+            <div class="stat-box"><span>Taxa de Conversão</span><strong id="stat-conversao">0%</strong></div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Loja</th>
+                        <th>Vendedor</th>
+                        <th>Vendeu?</th>
+                        <th>Valor</th>
+                        <th>Motivo</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="corpo-tabela"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- CONFIGURAÇÃO DO SUPABASE ---
+    const SUPABASE_URL = 'https://hpnjvlbareiphkasgwfn.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_BiLjOhWkRbyQ4g8uhi-hCg_mJ-VdzfK';
+    
+    // Inicialização correta via CDN
+    const { createClient } = supabase;
+    const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const vendedoresPorUnidade = {
+        "Beira Mar": ["Robert", "Amanda", "Leticia"],
+        "Joinville": ["Adriano", "Isa", "Kauan", "Renato"]
+    };
+
+    window.onload = () => { 
+        document.getElementById('data-atual').value = new Date().toLocaleDateString('pt-BR'); 
+    };
+
+    function atualizarVendedores() {
+        const unidade = document.getElementById('unidade').value;
+        const selectVendedor = document.getElementById('vendedor');
+        selectVendedor.innerHTML = '<option value="">Selecione...</option>';
+        if (unidade && vendedoresPorUnidade[unidade]) {
+            selectVendedor.disabled = false;
+            vendedoresPorUnidade[unidade].forEach(v => {
+                const opt = document.createElement('option'); 
+                opt.value = v; 
+                opt.textContent = v;
+                selectVendedor.appendChild(opt);
+            });
+        } else { selectVendedor.disabled = true; }
+    }
+
+    function toggleFields(status) {
+        document.getElementById('se-sim').style.display = (status === 'sim') ? 'block' : 'none';
+        document.getElementById('se-nao').style.display = (status === 'nao') ? 'block' : 'none';
+    }
+
+    function verificarOutros() {
+        const motivo = document.getElementById('motivo').value;
+        const divOutros = document.getElementById('campo-outros');
+        divOutros.style.display = (motivo === 'Outros') ? 'block' : 'none';
+    }
+
+    async function salvar() {
+        const unidade = document.getElementById('unidade').value;
+        const vendedor = document.getElementById('vendedor').value;
+        const vendaRealizada = document.querySelector('input[name="venda"]:checked');
+        
+        if (!unidade || !vendedor || !vendaRealizada) return alert("Preencha Loja, Vendedor e se houve venda.");
+
+        const converteu = vendaRealizada.value === 'sim';
+        let motivoFinal = converteu ? "Venda" : document.getElementById('motivo').value;
+
+        if (!converteu && !motivoFinal) return alert("Selecione o motivo da perda.");
+        
+        if (motivoFinal === "Outros") {
+            const obs = document.getElementById('obs-outros').value.trim();
+            if (!obs) return alert("Descreva o motivo no campo de observação.");
+            motivoFinal = "Outros: " + obs;
+        }
+
+        const valorVenda = parseFloat(document.getElementById('valor').value) || 0;
+        if (converteu && valorVenda <= 0) return alert("Insira um valor de venda válido.");
+
+        const dadosDB = {
+            data: document.getElementById('data-atual').value,
+            hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+            unidade, vendedor,
+            vendeu: converteu ? "SIM" : "NÃO",
+            valor: valorVenda,
+            motivo: motivoFinal
+        };
+
+        const { error } = await _supabase.from('vendas').insert([dadosDB]);
+
+        if (error) {
+            alert("Erro ao salvar: " + error.message);
+        } else {
+            alert("Atendimento registrado!");
+            location.reload();
+        }
+    }
+
+    async function abrirVisualizador() {
+        const corpo = document.getElementById('corpo-tabela');
+        corpo.innerHTML = "<tr><td colspan='7' style='text-align:center'>Carregando...</td></tr>";
+        document.getElementById('modalVisualizador').style.display = 'block';
+
+        const { data: historico, error } = await _supabase
+          .from('vendas')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) return corpo.innerHTML = `<tr><td colspan='7'>Erro: ${error.message}</td></tr>`;
+
+        corpo.innerHTML = "";
+        let totalFaturamento = 0, vendasSim = 0;
+
+        historico.forEach((row) => {
+            if(row.vendeu === "SIM") { totalFaturamento += row.valor; vendasSim++; }
+            
+            corpo.innerHTML += `
+                <tr>
+                    <td>${row.data} <br><small>${row.hora}</small></td>
+                    <td>${row.unidade}</td>
+                    <td>${row.vendedor}</td>
+                    <td><span class="badge badge-${row.vendeu.toLowerCase()}">${row.vendeu}</span></td>
+                    <td>${row.valor.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
+                    <td>${row.motivo}</td>
+                    <td><button class="btn-del-unit" onclick="apagarUnitario('${row.id}')">🗑️</button></td>
+                </tr>`;
+        });
+
+        document.getElementById('stat-valor').innerText = totalFaturamento.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+        document.getElementById('stat-conversao').innerText = historico.length ? `${(vendasSim/historico.length*100).toFixed(1)}%` : "0%";
+    }
+
+    async function apagarUnitario(id) {
+        if (!confirm("Apagar este registro permanentemente?")) return;
+        const { error } = await _supabase.from('vendas').delete().eq('id', id);
+        if (error) alert("Erro: " + error.message); else abrirVisualizador();
+    }
+
+    function fecharVisualizador() { document.getElementById('modalVisualizador').style.display = 'none'; }
+
+    async function exportarExcel() {
+        const { data: historico } = await _supabase.from('vendas').select('*').order('created_at', { ascending: true });
+        if (!historico?.length) return alert("Sem dados para exportar.");
+        
+        let csv = "\uFEFFData;Hora;Unidade;Vendedor;Vendeu;Valor;Motivo\n";
+        historico.forEach(r => {
+            csv += `${r.data};${r.hora};${r.unidade};${r.vendedor};${r.vendeu};${r.valor.toString().replace('.',',')};${r.motivo}\n`;
+        });
+        
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `relatorio_vendas_${new Date().getMonth()+1}.csv`;
+        link.click();
+    }
+
+    async function limparTudo() {
+        if (!confirm("⚠️ ATENÇÃO: Apagar TODO o histórico?")) return;
+        const { error } = await _supabase.from('vendas').delete().neq('unidade', '');
+        if (error) alert("Erro: " + error.message); else location.reload();
+    }
+</script>
+</body>
+</html>
