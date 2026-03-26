@@ -20,6 +20,7 @@
             background-color: var(--secondary-bg);
             color: var(--text);
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
@@ -35,6 +36,7 @@
             box-shadow: var(--shadow);
             width: 100%;
             max-width: 420px;
+            box-sizing: border-box;
         }
 
         .logo-container {
@@ -78,9 +80,11 @@
             background: var(--bg);
             box-sizing: border-box;
             outline: none;
+            transition: border-color 0.2s;
         }
 
-        input:disabled { background-color: #fbfbfd; color: #a1a1a6; }
+        select:focus, input:focus { border-color: var(--accent); }
+        input:disabled, select:disabled { background-color: #fbfbfd; color: #a1a1a6; cursor: not-allowed; }
 
         .radio-group { display: flex; gap: 15px; margin-top: 5px; }
         .radio-option { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
@@ -134,6 +138,19 @@
             letter-spacing: 0.5px;
         }
 
+        .main-footer {
+            text-align: center;
+            padding: 20px 0;
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .main-footer p {
+            font-size: 11px;
+            color: #86868b;
+            margin: 4px 0;
+        }
+
         /* MODAL VISUALIZADOR */
         .modal {
             display: none;
@@ -146,10 +163,7 @@
             box-sizing: border-box;
         }
 
-        .modal-content {
-            max-width: 800px;
-            margin: 20px auto;
-        }
+        .modal-content { max-width: 900px; margin: 20px auto; }
 
         .modal-header {
             display: flex;
@@ -178,29 +192,15 @@
         .stat-box strong { font-size: 20px; }
 
         .table-container { overflow-x: auto; }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-            min-width: 500px;
-        }
-
+        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
         th { text-align: left; padding: 12px; border-bottom: 2px solid #000; font-size: 11px; text-transform: uppercase; color: #86868b; }
         td { padding: 12px; border-bottom: 1px solid #f5f5f7; }
 
-        .badge {
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 10px;
-        }
+        .badge { padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 10px; }
         .badge-sim { background: #e3f9e5; color: #1f7a24; }
         .badge-nao { background: #fff1f0; color: #cf1322; }
 
-        .close-btn {
-            background: #000; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer;
-        }
+        .close-btn { background: #000; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -218,12 +218,18 @@
     </div>
 
     <div class="field">
+        <label>Unidade</label>
+        <select id="unidade" onchange="atualizarVendedores()">
+            <option value="">Selecione a loja...</option>
+            <option value="Beira Mar">Beira Mar</option>
+            <option value="Joinville">Joinville</option>
+        </select>
+    </div>
+
+    <div class="field">
         <label>Vendedor</label>
-        <select id="vendedor">
-            <option value="Adriano">Adriano</option>
-            <option value="Isa">Isa</option>
-            <option value="Renato">Renato</option>
-            <option value="Kauan">Kauan</option>
+        <select id="vendedor" disabled>
+            <option value="">Selecione a unidade primeiro</option>
         </select>
     </div>
 
@@ -263,6 +269,11 @@
     <button class="btn-danger" onclick="limparTudo()">⚠️ Limpar Histórico do Mês</button>
 </div>
 
+<footer class="main-footer">
+    <p>&copy; 2026 Calvin Garten. Todos os direitos reservados.</p>
+    <p>Sistema de Controle de Fluxo Interno v1.3</p>
+</footer>
+
 <div id="modalVisualizador" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -272,11 +283,11 @@
 
         <div class="stats-grid">
             <div class="stat-box">
-                <span>Vendas Totais</span>
+                <span>Faturamento Total</span>
                 <strong id="stat-valor">R$ 0,00</strong>
             </div>
             <div class="stat-box">
-                <span>Conversão</span>
+                <span>Taxa de Conversão</span>
                 <strong id="stat-conversao">0%</strong>
             </div>
         </div>
@@ -286,6 +297,7 @@
                 <thead>
                     <tr>
                         <th>Data/Hora</th>
+                        <th>Loja</th>
                         <th>Vendedor</th>
                         <th>Vendeu?</th>
                         <th>Valor</th>
@@ -297,10 +309,35 @@
         </div>
     </div>
 </div>
+
 <script>
+    const vendedoresPorUnidade = {
+        "Beira Mar": ["Adriano", "Isa", "Renato"],
+        "Joinville": ["Kauan", "Novo Vendedor Jlle", "Outro Nome"]
+    };
+
     window.onload = () => {
         document.getElementById('data-atual').value = new Date().toLocaleDateString('pt-BR');
     };
+
+    function atualizarVendedores() {
+        const unidade = document.getElementById('unidade').value;
+        const selectVendedor = document.getElementById('vendedor');
+        
+        selectVendedor.innerHTML = '<option value="">Selecione...</option>';
+        
+        if (unidade && vendedoresPorUnidade[unidade]) {
+            selectVendedor.disabled = false;
+            vendedoresPorUnidade[unidade].forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v; opt.textContent = v;
+                selectVendedor.appendChild(opt);
+            });
+        } else {
+            selectVendedor.disabled = true;
+            selectVendedor.innerHTML = '<option value="">Selecione a unidade primeiro</option>';
+        }
+    }
 
     function toggleFields(status) {
         document.getElementById('se-sim').style.display = (status === 'sim') ? 'block' : 'none';
@@ -308,21 +345,22 @@
     }
 
     function salvar() {
+        const unidade = document.getElementById('unidade').value;
         const vendedor = document.getElementById('vendedor').value;
         const vendaRealizada = document.querySelector('input[name="venda"]:checked');
         
-        if (!vendaRealizada) return alert("Selecione se houve venda.");
+        if (!unidade || !vendedor || !vendaRealizada) return alert("Preencha Loja, Vendedor e se houve venda.");
 
         const converteu = vendaRealizada.value === 'sim';
         const valor = parseFloat(document.getElementById('valor').value) || 0;
         const motivo = document.getElementById('motivo').value;
 
-        // Validação básica
         if(!converteu && motivo === "") return alert("Selecione o motivo da perda.");
 
         const dados = {
             Data: document.getElementById('data-atual').value,
             Hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+            Unidade: unidade,
             Vendedor: vendedor,
             Vendeu: converteu ? "SIM" : "NÃO",
             Valor: valor,
@@ -333,7 +371,7 @@
         historico.push(dados);
         localStorage.setItem('dados_vendas', JSON.stringify(historico));
 
-        alert("Atendimento registrado com sucesso!");
+        alert("Atendimento registrado!");
         location.reload();
     }
 
@@ -342,69 +380,50 @@
         const corpo = document.getElementById('corpo-tabela');
         corpo.innerHTML = "";
 
-        if(historico.length === 0) {
-            alert("Não há dados registrados ainda.");
-            return;
-        }
+        if(historico.length === 0) return alert("Sem dados.");
 
         let totalVendas = 0;
         let vendasSim = 0;
 
-        // Mostrar do mais novo para o mais antigo
         [...historico].reverse().forEach(row => {
-            if(row.Vendeu === "SIM") {
-                totalVendas += row.Valor;
-                vendasSim++;
-            }
-
+            if(row.Vendeu === "SIM") { totalVendas += row.Valor; vendasSim++; }
             corpo.innerHTML += `
                 <tr>
                     <td>${row.Data} <br><small>${row.Hora}</small></td>
+                    <td>${row.Unidade}</td>
                     <td>${row.Vendedor}</td>
                     <td><span class="badge badge-${row.Vendeu.toLowerCase()}">${row.Vendeu}</span></td>
                     <td>R$ ${row.Valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                     <td>${row.Motivo}</td>
-                </tr>
-            `;
+                </tr>`;
         });
 
         document.getElementById('stat-valor').innerText = `R$ ${totalVendas.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-        const taxa = (vendasSim / historico.length * 100).toFixed(1);
-        document.getElementById('stat-conversao').innerText = `${taxa}%`;
-
+        document.getElementById('stat-conversao').innerText = `${(vendasSim/historico.length*100).toFixed(1)}%`;
         document.getElementById('modalVisualizador').style.display = 'block';
     }
 
-    function fecharVisualizador() {
-        document.getElementById('modalVisualizador').style.display = 'none';
-    }
-
-    function limparTudo() {
-        const confirmar = confirm("Isso apagará permanentemente todos os registros salvos neste dispositivo. Deseja continuar?");
-        if (confirmar) {
-            const segundaConfirmacao = confirm("TEM CERTEZA? Os dados não poderão ser recuperados a menos que você tenha baixado o Excel.");
-            if (segundaConfirmacao) {
-                localStorage.removeItem('dados_vendas');
-                alert("O histórico foi zerado para o novo mês.");
-                location.reload();
-            }
-        }
-    }
+    function fecharVisualizador() { document.getElementById('modalVisualizador').style.display = 'none'; }
 
     function exportarExcel() {
         const historico = JSON.parse(localStorage.getItem('dados_vendas')) || [];
-        if (historico.length === 0) return alert("Sem dados para exportar.");
+        if (historico.length === 0) return alert("Vazio.");
 
-        let csv = "data:text/csv;charset=utf-8,\uFEFFData;Hora;Vendedor;Vendeu;Valor;Motivo\n";
-        historico.forEach(r => csv += `${r.Data};${r.Hora};${r.Vendedor};${r.Vendeu};${r.Valor.toString().replace('.',',')};${r.Motivo}\n`);
+        let csv = "data:text/csv;charset=utf-8,\uFEFFData;Hora;Unidade;Vendedor;Vendeu;Valor;Motivo\n";
+        historico.forEach(r => csv += `${r.Data};${r.Hora};${r.Unidade};${r.Vendedor};${r.Vendeu};${r.Valor.toString().replace('.',',')};${r.Motivo}\n`);
 
         const link = document.createElement("a");
         link.href = encodeURI(csv);
         link.download = `relatorio_vendas_${new Date().getMonth()+1}.csv`;
         link.click();
     }
+
+    function limparTudo() {
+        if (confirm("Apagar tudo?") && confirm("CERTEZA ABSOLUTA?")) {
+            localStorage.removeItem('dados_vendas');
+            location.reload();
+        }
+    }
 </script>
-
 </body>
-
 </html>
