@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Conversão | Calvin Garten</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --bg: #ffffff;
@@ -165,18 +165,18 @@
     <button class="btn-secondary" onclick="abrirVisualizador()">📊 VER RESULTADOS / APAGAR</button>
     <button class="btn-secondary" onclick="exportarExcel()">📥 BAIXAR EXCEL</button>
     
-    <button class="btn-danger" onclick="limparTudo()">⚠️ Limpar Histórico do Mês</button>
+    <button class="btn-danger" onclick="limparTudo()">⚠️ Limpar Histórico do Banco</button>
 </div>
 
 <footer class="main-footer">
     <p>&copy; 2026 Adriano Marques. Todos os direitos reservados.</p>
-    <p>Sistema de Controle de Fluxo Interno v1.5 - AVALIAÇÃO GRATUITA :)</p>
+    <p>Sistema de Controle de Fluxo Interno v2.0 (Supabase DB)</p>
 </footer>
 
 <div id="modalVisualizador" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Gestão de Registros</h2>
+            <h2>Gestão de Registros (Banco de Dados)</h2>
             <button class="close-btn" onclick="fecharVisualizador()">VOLTAR</button>
         </div>
 
@@ -205,6 +205,14 @@
 </div>
 
 <script>
+    // --- CONFIGURAÇÃO DO SUPABASE ---
+    // ⚠️ SUBSTITUA PELOS SEUS DADOS DO PAINEL DO SUPABASE (Settings > API)
+    const SUPABASE_URL = 'https://hpnjvlbareiphkasgwfn.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_BiLjOhWkRbyQ4g8uhi-hCg_mJ-VdzfK';
+    
+    // Inicializa o cliente Supabase
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
     const vendedoresPorUnidade = {
         "Beira Mar": ["Robert", "Amanda", "Leticia"],
         "Joinville": ["Adriano", "Isa", "Kauan","Renato"]
@@ -230,7 +238,6 @@
     function toggleFields(status) {
         document.getElementById('se-sim').style.display = (status === 'sim') ? 'block' : 'none';
         document.getElementById('se-nao').style.display = (status === 'nao') ? 'block' : 'none';
-        // Resetar campos se mudar a opção
         if(status === 'sim') verificarOutros(); 
     }
 
@@ -240,7 +247,8 @@
         divOutros.style.display = (motivo === 'Outros') ? 'block' : 'none';
     }
 
-    function salvar() {
+    // --- NOVA FUNÇÃO SALVAR (SUPABASE) ---
+    async function salvar() {
         const unidade = document.getElementById('unidade').value;
         const vendedor = document.getElementById('vendedor').value;
         const vendaRealizada = document.querySelector('input[name="venda"]:checked');
@@ -265,79 +273,159 @@
             }
         }
 
-        const dados = {
-            id: Date.now(),
-            Data: document.getElementById('data-atual').value,
-            Hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
-            Unidade: unidade,
-            Vendedor: vendedor,
-            Vendeu: converteu ? "SIM" : "NÃO",
-            Valor: parseFloat(document.getElementById('valor').value) || 0,
-            Motivo: motivoFinal
-        };
+        const valorVenda = parseFloat(document.getElementById('valor').value) || 0;
 
-        let historico = JSON.parse(localStorage.getItem('dados_vendas')) || [];
-        historico.push(dados);
-        localStorage.setItem('dados_vendas', JSON.stringify(historico));
-        
-        alert("Registro salvo com sucesso!");
-        location.reload();
-    }
-
-    function abrirVisualizador() {
-        const historico = JSON.parse(localStorage.getItem('dados_vendas')) || [];
-        const corpo = document.getElementById('corpo-tabela');
-        corpo.innerHTML = "";
-        let totalVendas = 0; let vendasSim = 0;
-
-        if(historico.length === 0) {
-            corpo.innerHTML = "<tr><td colspan='7' style='text-align:center'>Nenhum registro encontrado.</td></tr>";
+        // Validação básica: se vendeu, o valor não pode ser zero.
+        if (converteu && valorVenda <= 0) {
+            return alert("Por favor, insira um valor de venda válido.");
         }
 
-        [...historico].reverse().forEach((row) => {
-            if(row.Vendeu === "SIM") { totalVendas += row.Valor; vendasSim++; }
+        // Prepara os dados para o Supabase
+        const dadosDB = {
+            data: document.getElementById('data-atual').value,
+            hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+            unidade: unidade,
+            vendedor: vendedor,
+            vendeu: converteu ? "SIM" : "NÃO",
+            valor: valorVenda,
+            motivo: motivoFinal
+        };
+
+        // Envia para o banco de dados
+        const { data, error } = await supabase
+          .from('vendas')
+          .insert([dadosDB]);
+
+        if (error) {
+            console.error('Erro Supabase:', error);
+            alert("Erro ao salvar no banco de dados: " + error.message);
+        } else {
+            alert("Registro salvo com sucesso!");
+            location.reload(); // Recarrega para limpar o formulário
+        }
+    }
+
+    // --- NOVA FUNÇÃO VISUALIZAR (SUPABASE) ---
+    async function abrirVisualizador() {
+        const corpo = document.getElementById('corpo-tabela');
+        corpo.innerHTML = "<tr><td colspan='7' style='text-align:center'>Carregando dados...</td></tr>";
+        document.getElementById('modalVisualizador').style.display = 'block';
+
+        // Busca dados do Supabase (ordenado pelo mais recente)
+        const { data: historico, error } = await supabase
+          .from('vendas')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Erro Supabase:', error);
+            corpo.innerHTML = `<tr><td colspan='7' style='text-align:center; color:red'>Erro ao carregar: ${error.message}</td></tr>`;
+            return;
+        }
+
+        corpo.innerHTML = "";
+        let totalFaturamento = 0; 
+        let totalAtendimentos = historico.length;
+        let vendasSim = 0;
+
+        if(totalAtendimentos === 0) {
+            corpo.innerHTML = "<tr><td colspan='7' style='text-align:center'>Nenhum registro encontrado no banco.</td></tr>";
+        }
+
+        historico.forEach((row) => {
+            if(row.vendeu === "SIM") { 
+                totalFaturamento += row.valor; 
+                vendasSim++; 
+            }
+            
+            // Formatação do valor para Real R$
+            const valorFormatado = row.valor.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+
             corpo.innerHTML += `
                 <tr>
-                    <td>${row.Data} <br><small>${row.Hora}</small></td>
-                    <td>${row.Unidade}</td>
-                    <td>${row.Vendedor}</td>
-                    <td><span class="badge badge-${row.Vendeu.toLowerCase()}">${row.Vendeu}</span></td>
-                    <td>R$ ${row.Valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                    <td style="max-width: 200px; word-wrap: break-word;">${row.Motivo}</td>
+                    <td>${row.data} <br><small>${row.hora}</small></td>
+                    <td>${row.unidade}</td>
+                    <td>${row.vendedor}</td>
+                    <td><span class="badge badge-${row.vendeu.toLowerCase()}">${row.vendeu}</span></td>
+                    <td>${valorFormatado}</td>
+                    <td style="max-width: 200px; word-wrap: break-word;">${row.motivo}</td>
                     <td>
-                        <button class="btn-del-unit" onclick="apagarUnitario(${row.id})">🗑️</button>
+                        <button class="btn-del-unit" onclick="apagarUnitario('${row.id}')">🗑️</button>
                     </td>
                 </tr>`;
         });
 
-        document.getElementById('stat-valor').innerText = `R$ ${totalVendas.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-        document.getElementById('stat-conversao').innerText = historico.length ? `${(vendasSim/historico.length*100).toFixed(1)}%` : "0%";
-        document.getElementById('modalVisualizador').style.display = 'block';
+        // Atualiza Cards de Estatística
+        const faturamentoFormatado = totalFaturamento.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+        document.getElementById('stat-valor').innerText = faturamentoFormatado;
+        
+        const txConversao = totalAtendimentos ? `${(vendasSim/totalAtendimentos*100).toFixed(1)}%` : "0%";
+        document.getElementById('stat-conversao').innerText = txConversao;
     }
 
-    function apagarUnitario(id) {
-        if (confirm("Deseja apagar este registro específico?")) {
-            let historico = JSON.parse(localStorage.getItem('dados_vendas')) || [];
-            const novoHistorico = historico.filter(item => item.id !== id);
-            localStorage.setItem('dados_vendas', JSON.stringify(novoHistorico));
-            abrirVisualizador();
+    // --- NOVA FUNÇÃO APAGAR UNITÁRIO (SUPABASE) ---
+    async function apagarUnitario(id) {
+        if (confirm("Deseja apagar este registro específico permanentemente do banco de dados?")) {
+            const { error } = await supabase
+              .from('vendas')
+              .delete()
+              .eq('id', id); // Filtra pelo ID único
+
+            if (error) {
+                alert("Erro ao apagar: " + error.message);
+            } else {
+                abrirVisualizador(); // Atualiza a tabela
+            }
         }
     }
 
     function fecharVisualizador() { document.getElementById('modalVisualizador').style.display = 'none'; }
 
-    function exportarExcel() {
-        const historico = JSON.parse(localStorage.getItem('dados_vendas')) || [];
-        if (historico.length === 0) return alert("Vazio.");
+    // --- NOVA FUNÇÃO EXPORTAR (BUSCA DO SUPABASE PRIMEIRO) ---
+    async function exportarExcel() {
+        // Busca os dados atuais do banco para garantir que o Excel está atualizado
+        const { data: historico, error } = await supabase
+          .from('vendas')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (error || !historico || historico.length === 0) return alert("Não há dados para exportar ou ocorreu um erro.");
+        
+        // Gera o CSV
         let csv = "data:text/csv;charset=utf-8,\uFEFFData;Hora;Unidade;Vendedor;Vendeu;Valor;Motivo\n";
-        historico.forEach(r => csv += `${r.Data};${r.Hora};${r.Unidade};${r.Vendedor};${r.Vendeu};${r.Valor.toString().replace('.',',')};${r.Motivo}\n`);
-        const link = document.createElement("a"); link.href = encodeURI(csv);
-        link.download = `relatorio_${new Date().getMonth()+1}.csv`; link.click();
+        historico.forEach(r => {
+            // Converte ponto em vírgula para o Excel brasileiro reconhecer como número
+            const valorCsv = r.valor.toString().replace('.',',');
+            csv += `${r.data};${r.hora};${r.unidade};${r.vendedor};${r.vendeu};${valorCsv};${r.motivo}\n`;
+        });
+        
+        const link = document.createElement("a"); 
+        link.href = encodeURI(csv);
+        // Nome do arquivo com o mês atual (0-11, então +1)
+        link.download = `relatorio_vendas_mes_${new Date().getMonth()+1}.csv`; 
+        link.click();
     }
 
-    function limparTudo() {
-        if (confirm("Isso apagará TODO o histórico. Continua?")) {
-            localStorage.removeItem('dados_vendas'); location.reload();
+    // --- NOVA FUNÇÃO LIMPAR TUDO (SUPABASE - CUIDADO!) ---
+    async function limparTudo() {
+        if (confirm("⚠️ ATENÇÃO: Isso apagará TODO o histórico do banco de dados permanentemente. Você tem certeza absoluta?")) {
+            
+            // No Supabase, para deletar tudo sem filtro, precisamos usar uma gambiarra segura 
+            // ou garantir que o RLS permite. O jeito mais fácil é filtrar por algo que sempre existe, 
+            // como 'created_at' não ser nulo.
+            
+            const { error } = await supabase
+              .from('vendas')
+              .delete()
+              .neq('data', ''); // Deleta onde a data não é vazia (ou seja, tudo)
+
+            if (error) {
+                console.error('Erro ao limpar banco:', error);
+                alert("Erro ao limpar banco de dados. Verifique as permissões de RLS no Supabase. Erro: " + error.message);
+            } else {
+                alert("Banco de dados limpo com sucesso.");
+                location.reload();
+            }
         }
     }
 </script>
