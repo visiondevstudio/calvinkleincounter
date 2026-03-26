@@ -46,12 +46,13 @@
         .field { margin-bottom: 18px; }
         label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 6px; color: #86868b; text-transform: uppercase; }
 
-        select, input {
+        select, input, textarea {
             width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px;
             font-size: 15px; background: var(--bg); box-sizing: border-box; outline: none; transition: border-color 0.2s;
+            font-family: inherit;
         }
 
-        select:focus, input:focus { border-color: var(--accent); }
+        select:focus, input:focus, textarea:focus { border-color: var(--accent); }
         input:disabled, select:disabled { background-color: #fbfbfd; color: #a1a1a6; cursor: not-allowed; }
 
         .radio-group { display: flex; gap: 15px; margin-top: 5px; }
@@ -59,6 +60,9 @@
 
         .conditional { display: none; padding-top: 15px; border-top: 1px solid #f5f5f7; margin-top: 15px; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Estilo específico para o campo de observação */
+        #campo-outros { margin-top: 12px; display: none; animation: fadeIn 0.3s ease; }
 
         .btn-primary { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 15px; }
         .btn-secondary { width: 100%; padding: 10px; background: transparent; color: #1d1d1f; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; cursor: pointer; margin-top: 10px; }
@@ -140,14 +144,19 @@
     <div id="se-nao" class="conditional">
         <div class="field">
             <label>Motivo da Perda</label>
-            <select id="motivo">
+            <select id="motivo" onchange="verificarOutros()">
                 <option value="">Selecione...</option>
                 <option value="Grade quebrada">Tamanho/Grade</option>
                 <option value="Falta de produto">Peça não encontrada</option>
                 <option value="Cor/Modelo">Não gostou do modelo</option>
                 <option value="Preço">Preço</option>
                 <option value="Apenas visitando">Só olhando</option>
+                <option value="Outros">Outros (especificar)</option>
             </select>
+        </div>
+        <div id="campo-outros">
+            <label>Observação</label>
+            <textarea id="obs-outros" rows="2" placeholder="Descreva o motivo..."></textarea>
         </div>
     </div>
 
@@ -160,7 +169,7 @@
 
 <footer class="main-footer">
     <p>&copy; 2026 Adriano Marques. Todos os direitos reservados.</p>
-    <p>Sistema de Controle de Fluxo Interno v1.4</p>
+    <p>Sistema de Controle de Fluxo Interno v1.5</p>
 </footer>
 
 <div id="modalVisualizador" class="modal">
@@ -220,30 +229,58 @@
     function toggleFields(status) {
         document.getElementById('se-sim').style.display = (status === 'sim') ? 'block' : 'none';
         document.getElementById('se-nao').style.display = (status === 'nao') ? 'block' : 'none';
+        // Resetar campos se mudar a opção
+        if(status === 'sim') verificarOutros(); 
+    }
+
+    function verificarOutros() {
+        const motivo = document.getElementById('motivo').value;
+        const divOutros = document.getElementById('campo-outros');
+        divOutros.style.display = (motivo === 'Outros') ? 'block' : 'none';
     }
 
     function salvar() {
         const unidade = document.getElementById('unidade').value;
         const vendedor = document.getElementById('vendedor').value;
         const vendaRealizada = document.querySelector('input[name="venda"]:checked');
-        if (!unidade || !vendedor || !vendaRealizada) return alert("Preencha todos os campos.");
+        
+        if (!unidade || !vendedor || !vendaRealizada) return alert("Preencha Loja, Vendedor e se houve venda.");
 
         const converteu = vendaRealizada.value === 'sim';
+        let motivoFinal = "";
+
+        if (converteu) {
+            motivoFinal = "Venda";
+        } else {
+            const motivoSel = document.getElementById('motivo').value;
+            if (!motivoSel) return alert("Selecione o motivo da perda.");
+            
+            if (motivoSel === "Outros") {
+                const obs = document.getElementById('obs-outros').value.trim();
+                if (!obs) return alert("Por favor, descreva o motivo no campo de observação.");
+                motivoFinal = "Outros: " + obs;
+            } else {
+                motivoFinal = motivoSel;
+            }
+        }
+
         const dados = {
-            id: Date.now(), // ID único para controle de exclusão
+            id: Date.now(),
             Data: document.getElementById('data-atual').value,
             Hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
             Unidade: unidade,
             Vendedor: vendedor,
             Vendeu: converteu ? "SIM" : "NÃO",
             Valor: parseFloat(document.getElementById('valor').value) || 0,
-            Motivo: !converteu ? document.getElementById('motivo').value : "Venda"
+            Motivo: motivoFinal
         };
 
         let historico = JSON.parse(localStorage.getItem('dados_vendas')) || [];
         historico.push(dados);
         localStorage.setItem('dados_vendas', JSON.stringify(historico));
-        alert("Atendimento registrado!"); location.reload();
+        
+        alert("Registro salvo com sucesso!");
+        location.reload();
     }
 
     function abrirVisualizador() {
@@ -256,7 +293,6 @@
             corpo.innerHTML = "<tr><td colspan='7' style='text-align:center'>Nenhum registro encontrado.</td></tr>";
         }
 
-        // Mostra do mais novo para o mais antigo
         [...historico].reverse().forEach((row) => {
             if(row.Vendeu === "SIM") { totalVendas += row.Valor; vendasSim++; }
             corpo.innerHTML += `
@@ -266,7 +302,7 @@
                     <td>${row.Vendedor}</td>
                     <td><span class="badge badge-${row.Vendeu.toLowerCase()}">${row.Vendeu}</span></td>
                     <td>R$ ${row.Valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                    <td>${row.Motivo}</td>
+                    <td style="max-width: 200px; word-wrap: break-word;">${row.Motivo}</td>
                     <td>
                         <button class="btn-del-unit" onclick="apagarUnitario(${row.id})">🗑️</button>
                     </td>
@@ -279,12 +315,11 @@
     }
 
     function apagarUnitario(id) {
-        if (confirm("Tem certeza que deseja apagar este registro específico?")) {
+        if (confirm("Deseja apagar este registro específico?")) {
             let historico = JSON.parse(localStorage.getItem('dados_vendas')) || [];
-            // Filtra o histórico mantendo todos os itens EXCETO o que tem o ID clicado
             const novoHistorico = historico.filter(item => item.id !== id);
             localStorage.setItem('dados_vendas', JSON.stringify(novoHistorico));
-            abrirVisualizador(); // Recarrega a tabela sem fechar o modal
+            abrirVisualizador();
         }
     }
 
@@ -300,7 +335,7 @@
     }
 
     function limparTudo() {
-        if (confirm("Isso apagará TODO o histórico do mês. Continua?") && confirm("Último aviso: Certeza absoluta?")) {
+        if (confirm("Isso apagará TODO o histórico. Continua?")) {
             localStorage.removeItem('dados_vendas'); location.reload();
         }
     }
