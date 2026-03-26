@@ -206,16 +206,16 @@
 
 <script>
     // --- CONFIGURAÇÃO DO SUPABASE ---
-    // ⚠️ SUBSTITUA PELOS SEUS DADOS DO PAINEL DO SUPABASE (Settings > API)
     const SUPABASE_URL = 'https://hpnjvlbareiphkasgwfn.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_BiLjOhWkRbyQ4g8uhi-hCg_mJ-VdzfK';
     
-    // Inicializa o cliente Supabase
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Inicialização correta via CDN
+    const { createClient } = supabase;
+    const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const vendedoresPorUnidade = {
         "Beira Mar": ["Robert", "Amanda", "Leticia"],
-        "Joinville": ["Adriano", "Isa", "Kauan","Renato"]
+        "Joinville": ["Adriano", "Isa", "Kauan", "Renato"]
     };
 
     window.onload = () => { 
@@ -229,7 +229,9 @@
         if (unidade && vendedoresPorUnidade[unidade]) {
             selectVendedor.disabled = false;
             vendedoresPorUnidade[unidade].forEach(v => {
-                const opt = document.createElement('option'); opt.value = v; opt.textContent = v;
+                const opt = document.createElement('option'); 
+                opt.value = v; 
+                opt.textContent = v;
                 selectVendedor.appendChild(opt);
             });
         } else { selectVendedor.disabled = true; }
@@ -238,7 +240,6 @@
     function toggleFields(status) {
         document.getElementById('se-sim').style.display = (status === 'sim') ? 'block' : 'none';
         document.getElementById('se-nao').style.display = (status === 'nao') ? 'block' : 'none';
-        if(status === 'sim') verificarOutros(); 
     }
 
     function verificarOutros() {
@@ -247,7 +248,6 @@
         divOutros.style.display = (motivo === 'Outros') ? 'block' : 'none';
     }
 
-    // --- NOVA FUNÇÃO SALVAR (SUPABASE) ---
     async function salvar() {
         const unidade = document.getElementById('unidade').value;
         const vendedor = document.getElementById('vendedor').value;
@@ -256,177 +256,100 @@
         if (!unidade || !vendedor || !vendaRealizada) return alert("Preencha Loja, Vendedor e se houve venda.");
 
         const converteu = vendaRealizada.value === 'sim';
-        let motivoFinal = "";
+        let motivoFinal = converteu ? "Venda" : document.getElementById('motivo').value;
 
-        if (converteu) {
-            motivoFinal = "Venda";
-        } else {
-            const motivoSel = document.getElementById('motivo').value;
-            if (!motivoSel) return alert("Selecione o motivo da perda.");
-            
-            if (motivoSel === "Outros") {
-                const obs = document.getElementById('obs-outros').value.trim();
-                if (!obs) return alert("Por favor, descreva o motivo no campo de observação.");
-                motivoFinal = "Outros: " + obs;
-            } else {
-                motivoFinal = motivoSel;
-            }
+        if (!converteu && !motivoFinal) return alert("Selecione o motivo da perda.");
+        
+        if (motivoFinal === "Outros") {
+            const obs = document.getElementById('obs-outros').value.trim();
+            if (!obs) return alert("Descreva o motivo no campo de observação.");
+            motivoFinal = "Outros: " + obs;
         }
 
         const valorVenda = parseFloat(document.getElementById('valor').value) || 0;
+        if (converteu && valorVenda <= 0) return alert("Insira um valor de venda válido.");
 
-        // Validação básica: se vendeu, o valor não pode ser zero.
-        if (converteu && valorVenda <= 0) {
-            return alert("Por favor, insira um valor de venda válido.");
-        }
-
-        // Prepara os dados para o Supabase
         const dadosDB = {
             data: document.getElementById('data-atual').value,
             hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
-            unidade: unidade,
-            vendedor: vendedor,
+            unidade, vendedor,
             vendeu: converteu ? "SIM" : "NÃO",
             valor: valorVenda,
             motivo: motivoFinal
         };
 
-        // Envia para o banco de dados
-        const { data, error } = await supabase
-          .from('vendas')
-          .insert([dadosDB]);
+        const { error } = await _supabase.from('vendas').insert([dadosDB]);
 
         if (error) {
-            console.error('Erro Supabase:', error);
-            alert("Erro ao salvar no banco de dados: " + error.message);
+            alert("Erro ao salvar: " + error.message);
         } else {
-            alert("Registro salvo com sucesso!");
-            location.reload(); // Recarrega para limpar o formulário
+            alert("Atendimento registrado!");
+            location.reload();
         }
     }
 
-    // --- NOVA FUNÇÃO VISUALIZAR (SUPABASE) ---
     async function abrirVisualizador() {
         const corpo = document.getElementById('corpo-tabela');
-        corpo.innerHTML = "<tr><td colspan='7' style='text-align:center'>Carregando dados...</td></tr>";
+        corpo.innerHTML = "<tr><td colspan='7' style='text-align:center'>Carregando...</td></tr>";
         document.getElementById('modalVisualizador').style.display = 'block';
 
-        // Busca dados do Supabase (ordenado pelo mais recente)
-        const { data: historico, error } = await supabase
+        const { data: historico, error } = await _supabase
           .from('vendas')
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error('Erro Supabase:', error);
-            corpo.innerHTML = `<tr><td colspan='7' style='text-align:center; color:red'>Erro ao carregar: ${error.message}</td></tr>`;
-            return;
-        }
+        if (error) return corpo.innerHTML = `<tr><td colspan='7'>Erro: ${error.message}</td></tr>`;
 
         corpo.innerHTML = "";
-        let totalFaturamento = 0; 
-        let totalAtendimentos = historico.length;
-        let vendasSim = 0;
-
-        if(totalAtendimentos === 0) {
-            corpo.innerHTML = "<tr><td colspan='7' style='text-align:center'>Nenhum registro encontrado no banco.</td></tr>";
-        }
+        let totalFaturamento = 0, vendasSim = 0;
 
         historico.forEach((row) => {
-            if(row.vendeu === "SIM") { 
-                totalFaturamento += row.valor; 
-                vendasSim++; 
-            }
+            if(row.vendeu === "SIM") { totalFaturamento += row.valor; vendasSim++; }
             
-            // Formatação do valor para Real R$
-            const valorFormatado = row.valor.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
-
             corpo.innerHTML += `
                 <tr>
                     <td>${row.data} <br><small>${row.hora}</small></td>
                     <td>${row.unidade}</td>
                     <td>${row.vendedor}</td>
                     <td><span class="badge badge-${row.vendeu.toLowerCase()}">${row.vendeu}</span></td>
-                    <td>${valorFormatado}</td>
-                    <td style="max-width: 200px; word-wrap: break-word;">${row.motivo}</td>
-                    <td>
-                        <button class="btn-del-unit" onclick="apagarUnitario('${row.id}')">🗑️</button>
-                    </td>
+                    <td>${row.valor.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
+                    <td>${row.motivo}</td>
+                    <td><button class="btn-del-unit" onclick="apagarUnitario('${row.id}')">🗑️</button></td>
                 </tr>`;
         });
 
-        // Atualiza Cards de Estatística
-        const faturamentoFormatado = totalFaturamento.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
-        document.getElementById('stat-valor').innerText = faturamentoFormatado;
-        
-        const txConversao = totalAtendimentos ? `${(vendasSim/totalAtendimentos*100).toFixed(1)}%` : "0%";
-        document.getElementById('stat-conversao').innerText = txConversao;
+        document.getElementById('stat-valor').innerText = totalFaturamento.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+        document.getElementById('stat-conversao').innerText = historico.length ? `${(vendasSim/historico.length*100).toFixed(1)}%` : "0%";
     }
 
-    // --- NOVA FUNÇÃO APAGAR UNITÁRIO (SUPABASE) ---
     async function apagarUnitario(id) {
-        if (confirm("Deseja apagar este registro específico permanentemente do banco de dados?")) {
-            const { error } = await supabase
-              .from('vendas')
-              .delete()
-              .eq('id', id); // Filtra pelo ID único
-
-            if (error) {
-                alert("Erro ao apagar: " + error.message);
-            } else {
-                abrirVisualizador(); // Atualiza a tabela
-            }
-        }
+        if (!confirm("Apagar este registro permanentemente?")) return;
+        const { error } = await _supabase.from('vendas').delete().eq('id', id);
+        if (error) alert("Erro: " + error.message); else abrirVisualizador();
     }
 
     function fecharVisualizador() { document.getElementById('modalVisualizador').style.display = 'none'; }
 
-    // --- NOVA FUNÇÃO EXPORTAR (BUSCA DO SUPABASE PRIMEIRO) ---
     async function exportarExcel() {
-        // Busca os dados atuais do banco para garantir que o Excel está atualizado
-        const { data: historico, error } = await supabase
-          .from('vendas')
-          .select('*')
-          .order('created_at', { ascending: true });
-
-        if (error || !historico || historico.length === 0) return alert("Não há dados para exportar ou ocorreu um erro.");
+        const { data: historico } = await _supabase.from('vendas').select('*').order('created_at', { ascending: true });
+        if (!historico?.length) return alert("Sem dados para exportar.");
         
-        // Gera o CSV
-        let csv = "data:text/csv;charset=utf-8,\uFEFFData;Hora;Unidade;Vendedor;Vendeu;Valor;Motivo\n";
+        let csv = "\uFEFFData;Hora;Unidade;Vendedor;Vendeu;Valor;Motivo\n";
         historico.forEach(r => {
-            // Converte ponto em vírgula para o Excel brasileiro reconhecer como número
-            const valorCsv = r.valor.toString().replace('.',',');
-            csv += `${r.data};${r.hora};${r.unidade};${r.vendedor};${r.vendeu};${valorCsv};${r.motivo}\n`;
+            csv += `${r.data};${r.hora};${r.unidade};${r.vendedor};${r.vendeu};${r.valor.toString().replace('.',',')};${r.motivo}\n`;
         });
         
-        const link = document.createElement("a"); 
-        link.href = encodeURI(csv);
-        // Nome do arquivo com o mês atual (0-11, então +1)
-        link.download = `relatorio_vendas_mes_${new Date().getMonth()+1}.csv`; 
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `relatorio_vendas_${new Date().getMonth()+1}.csv`;
         link.click();
     }
 
-    // --- NOVA FUNÇÃO LIMPAR TUDO (SUPABASE - CUIDADO!) ---
     async function limparTudo() {
-        if (confirm("⚠️ ATENÇÃO: Isso apagará TODO o histórico do banco de dados permanentemente. Você tem certeza absoluta?")) {
-            
-            // No Supabase, para deletar tudo sem filtro, precisamos usar uma gambiarra segura 
-            // ou garantir que o RLS permite. O jeito mais fácil é filtrar por algo que sempre existe, 
-            // como 'created_at' não ser nulo.
-            
-            const { error } = await supabase
-              .from('vendas')
-              .delete()
-              .neq('data', ''); // Deleta onde a data não é vazia (ou seja, tudo)
-
-            if (error) {
-                console.error('Erro ao limpar banco:', error);
-                alert("Erro ao limpar banco de dados. Verifique as permissões de RLS no Supabase. Erro: " + error.message);
-            } else {
-                alert("Banco de dados limpo com sucesso.");
-                location.reload();
-            }
-        }
+        if (!confirm("⚠️ ATENÇÃO: Apagar TODO o histórico?")) return;
+        const { error } = await _supabase.from('vendas').delete().neq('unidade', '');
+        if (error) alert("Erro: " + error.message); else location.reload();
     }
 </script>
 </body>
